@@ -12,15 +12,6 @@ tagger = SequenceTagger.load("flair/ner-english-large")
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
 
-class RelationDataset(Dataset):
-    def __init__(self, samples):
-        self.samples = samples
-
-    def __len__(self):
-        return len(self.samples)
-
-    def __getitem__(self, idx):
-        return self.samples[idx]
 
 
 def read_file(fname):
@@ -47,21 +38,58 @@ def read_annoations_file(fname):
             annotations.append((sent_id,e1, rel, e2, sentence))
     return annotations
 
+
+def is_distinct(t1, t2):
+    if t1[1] <= t2[0] or t2[1] <= t1[0]:
+        return True
+    return False
+
+def entity_index_distinct(e1_start_end, e2_start_end):
+    if len(e1_start_end) <= len(e2_start_end):
+        for t1 in e1_start_end:
+            for t2 in e2_start_end:
+                if is_distinct(t1, t2):
+                    e1_start, e1_end = t1
+        for t2 in e2_start_end:
+            if is_distinct((e1_start, e1_end), t2):
+                e2_start, e2_end = t2
+    else:
+        for t2 in e2_start_end:
+            for t1 in e1_start_end:
+                if is_distinct(t1, t2):
+                    e2_start, e2_end = t2
+        for t1 in e1_start_end:
+            if is_distinct((e2_start, e2_end), t1):
+                e1_start, e1_end = t1
+    return e1_start, e1_end, e2_start, e2_end
+
+
 def from_annotations_to_samples(annotations):
     samples = []
     for annotation in annotations:
         sent_id, e1, rel, e2, sentence = annotation
         tokens = sentence.split(' ')
+        e1 = e1.replace("-LRB-", "(")
+        e2 = e2.replace("-RRB-", ")")
         e1_tokens = e1.split(' ')
         e2_tokens = e2.split(' ')
-        e1_start, e1_end = [(i,i+len(e1_tokens)) for i in range(len(tokens) - 1) if e1_tokens == tokens[i:i + len(e1_tokens)]][0]
-        # add special tokens
-        tokens.insert(e1_end, E1)
-        tokens.insert(e1_start, E1)
-        e2_start, e2_end = [(i,i+len(e2_tokens)) for i in range(len(tokens) - 1) if e2_tokens == tokens[i:i + len(e2_tokens)]][0]
-        # add special tokens
-        tokens.insert(e2_end, E2)
-        tokens.insert(e2_start, E2)
+        e1_start_end = [(i, i+len(e1_tokens)) for i in range(len(tokens) - len(e1_tokens) + 1) if e1_tokens == tokens[i:i + len(e1_tokens)]]
+        e2_start_end = [(i, i+len(e2_tokens)) for i in range(len(tokens) - len(e2_tokens) + 1) if e2_tokens == tokens[i:i + len(e2_tokens)]]
+
+        e1_start, e1_end, e2_start, e2_end = entity_index_distinct(e1_start_end, e2_start_end)
+
+        if e1_end <= e2_start:
+            tokens.insert(e2_end, E2)
+            tokens.insert(e2_start, E2)
+            tokens.insert(e1_end, E1)
+            tokens.insert(e1_start, E1)
+
+        else:
+            # add special tokens
+            tokens.insert(e1_end, E1)
+            tokens.insert(e1_start, E1)        # add special tokens
+            tokens.insert(e2_end, E2)
+            tokens.insert(e2_start, E2)
         new_sentence = ' '.join(tokens)
         sample = (sent_id, new_sentence, e1, e2, rel)
         samples.append(sample)

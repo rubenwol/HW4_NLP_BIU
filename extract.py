@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from transformers import get_scheduler
@@ -67,11 +69,14 @@ if __name__ == '__main__':
         name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
     )
 
+    loss_fn = nn.MSELoss()
+
     model.to(device)
     progress_bar = tqdm(range(num_training_steps))
 
     model.train()
     for epoch in range(num_epochs):
+        cum_loss = 0
         for batch in train_dataloader:
             batch_input = {
                 'input_ids': batch['input_ids'],
@@ -81,13 +86,17 @@ if __name__ == '__main__':
             e2_spans = batch['e2_spans']
             # need to identitif
             outputs = model(batch_input, e1_spans, e2_spans)
-            loss = outputs.loss
+            labels = torch.tensor(batch['labels'], device=device)
+            one_hot_labels = F.one_hot(labels, 2)
+            loss = loss_fn(outputs, one_hot_labels.float())
             loss.backward()
-
+            cum_loss += loss
+            # print(f'Current loss: {loss}', end='\r')
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad()
             progress_bar.update(1)
+        print(f'loss: {cum_loss/len(train_dataloader)}')
 
     # metric = load_metric("accuracy")
     # model.eval()

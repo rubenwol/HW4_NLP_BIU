@@ -132,7 +132,7 @@ def get_relevant_pairs_entities(sent, sent_id):
     sentence_samples = create_samples_per_sentence(sent, sent_id, relevant_pairs)
     return sentence_samples
 
-# TODO: blala
+
 def create_samples_per_sentence(sent, sent_id, relevant_pairs):
     space_E1 = ' [$] '
     space_E2 = ' [#] '

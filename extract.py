@@ -135,7 +135,7 @@ def eval(eval_dataloader, model):
         # print(f'Current loss: {loss}', end='\r')
     # print(f'loss: {cum_loss / len(train_dataloader)}')
 
-def test(eval_dataloader, model):
+def noTest(eval_dataloader, model):
     with torch.no_grad():
         for batch in eval_dataloader:
             batch_input = {
@@ -172,7 +172,7 @@ if __name__ == '__main__':
     train_dataset = RelationDataset(train_dataset)
     dev_dataset = RelationDataset(dev_dataset)
     # TODO: RelationDatasetTest for test dataset (dev)
-
+    # skippppppp
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", special_tokens=True)
     tokenizer.add_tokens(['[$]', '[#]'])
     E1_id = tokenizer.convert_tokens_to_ids(E1)

@@ -167,8 +167,8 @@ if __name__ == '__main__':
 
     train_annotations = read_annoations_file('data/TRAIN.annotations')
     dev_annotations = read_annoations_file('data/DEV.annotations')
-    train_dataset = from_annotations_to_samples(train_annotations)
-    dev_dataset = from_annotations_to_samples(dev_annotations)
+    train_dataset = from_annotation_to_samples_ner(train_annotations)
+    dev_dataset = from_annotation_to_samples_ner(dev_annotations)
     train_dataset = RelationDataset(train_dataset)
     dev_dataset = RelationDataset(dev_dataset)
 

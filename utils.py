@@ -62,6 +62,35 @@ def entity_index_distinct(e1_start_end, e2_start_end):
     return e1_start, e1_end, e2_start, e2_end
 
 
+def from_annotations_to_dic(annotations):
+    dic_rel_entities = set()
+    corpus = []
+    for annotation in annotations:
+        sent_id, e1, rel, e2, sentence = annotation
+        #tokens = sentence.split(' ')
+        e1 = e1.replace("-LRB-", "(")
+        e2 = e2.replace("-RRB-", ")")
+        if rel == 'Work_For':
+            dic_rel_entities.add((sent_id,e1,e2))
+        corpus.append((sent_id, sentence))
+
+    return corpus, dic_rel_entities
+
+
+def from_annotation_to_samples_ner(annotations):
+     corpus, dic_rel_entities = from_annotations_to_dic(annotations)
+     samples = creat_test_samples(corpus)
+     new_samples = []
+     for sent_id, new_sentence, e1, e2 in samples:
+        if tuple(sent_id, e1, e2) in dic_rel_entities:
+            rel = 'Work_For'
+        else:
+            rel = 'not_work_for'
+        new_samples.append((sent_id, new_sentence, e1, e2, rel))
+     return new_samples
+
+
+
 def from_annotations_to_samples(annotations):
     samples = []
     for annotation in annotations:

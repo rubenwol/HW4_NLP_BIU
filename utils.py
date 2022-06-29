@@ -134,16 +134,16 @@ def get_relevant_pairs_entities(sent, sent_id):
 
 # TODO: blala
 def create_samples_per_sentence(sent, sent_id, relevant_pairs):
-    spaceE1 = '[$]'
-    E2 = '[#]'
+    space_E1 = ' [$] '
+    space_E2 = ' [#] '
     samples = []
     for e1, e2 in relevant_pairs:
         str_e1, begin_e1, end_e1 = e1
         str_e2, begin_e2, end_e2 = e2
         if begin_e1 < begin_e2:
-            new_sentence = sent[:begin_e1] + E1 + sent[begin_e1:end_e1] + E1 + sent[end_e1:begin_e2] + E2 + sent[begin_e2:end_e2] + E2 + sent[end_e2:]
+            new_sentence = sent[:begin_e1] + space_E1 + sent[begin_e1:end_e1] + space_E1 + sent[end_e1:begin_e2] + space_E2 + sent[begin_e2:end_e2] + space_E2 + sent[end_e2:]
         else:
-            new_sentence = sent[:begin_e2] + E2 + sent[begin_e2:end_e2] + E2 + sent[end_e2:begin_e1] + E1 + sent[begin_e1:end_e1] + E1 + sent[end_e1:]
+            new_sentence = sent[:begin_e2] + space_E2 + sent[begin_e2:end_e2] + space_E2 + sent[end_e2:begin_e1] + space_E1 + sent[begin_e1:end_e1] + space_E1 + sent[end_e1:]
         sample = (sent_id, new_sentence, str_e1, str_e2)
         samples.append(sample)
     return samples

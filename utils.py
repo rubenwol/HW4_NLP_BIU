@@ -94,7 +94,12 @@ def from_annotations_to_samples(annotations):
     return samples
 
 
-
+def creat_test_samples(corpus):
+    sent_id_2_samples = {}
+    for sent_id, sent in corpus.items():
+        if get_relevant_pairs_entities(sent) != set():
+            sent_id_2_samples[sent_id] = get_relevant_pairs_entities(sent)
+    return sent_id_2_samples
 
 def get_relevant_pairs_entities(sent):
     '''
@@ -123,11 +128,11 @@ def get_relevant_pairs_entities(sent):
             ORG_entities.append((entity.text, entity.start_position, entity.end_position))
     # relevant_pairs = list(itertools.product(PER_entities, LOC_entities))
     relevant_pairs = list(itertools.product(PER_entities, ORG_entities))
-    sentence_2_samples = create_sample_bert_format(sent, relevant_pairs)
-    return sentence_2_samples
+    sentence_samples = create_samples_per_sentence(sent, relevant_pairs)
+    return sentence_samples
 
 
-def create_sample_bert_format(sent, relevant_pairs):
+def create_samples_per_sentence(sent, relevant_pairs):
     samples = set()
     for e1, e2 in relevant_pairs:
         str_e1, begin_e1, end_e1 = e1
@@ -137,6 +142,7 @@ def create_sample_bert_format(sent, relevant_pairs):
         else:
             sample = sent[:begin_e2] + "$" + sent[begin_e2:end_e2] + "$" + sent[end_e2:begin_e1] + "#" + sent[begin_e1:end_e1] + "#" + sent[end_e1:]
         samples.add(sample)
+    return samples
 
 
 def draft():

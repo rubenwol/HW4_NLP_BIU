@@ -37,7 +37,6 @@ class RelationDatasetTest(Dataset):
         or with word : sentence_for_bert, sent_id, e1, e2
         '''
         # tokens = tokenizer(self.samples[idx][1], truncation=True)
-
         return self.samples[idx][1], self.samples[idx][0], self.samples[idx][2], self.samples[idx][3]
 
 def collate_fn(batch):
@@ -135,7 +134,9 @@ def eval(eval_dataloader, model):
         # print(f'Current loss: {loss}', end='\r')
     # print(f'loss: {cum_loss / len(train_dataloader)}')
 
-def noTest(eval_dataloader, model):
+
+def eval_test(eval_dataloader, model, output_file):
+    f = open(output_file, 'w')
     with torch.no_grad():
         for batch in eval_dataloader:
             batch_input = {
@@ -150,13 +151,13 @@ def noTest(eval_dataloader, model):
             # need to identitif
             outputs = model(batch_input, e1_spans, e2_spans)
             # labels = torch.tensor(batch['labels'], device=device)
-            pred = torch.argmax(outputs, dim=1) # list of prediction (1 or 0)
+            pred = torch.argmax(outputs, dim=1)# list of prediction (1 or 0) [1,1,0,0....]
 
             for i in range(len(pred)):
                 if pred == 1:
-                    print()
+                    f.write(f'{sent_ids[i]}\t{e1[i]}\tWork_For\t{e2[i]}')
                     # TODO:add to file sent_id[i]"\t"e1[i]"\t"Work_For"\t"e2[i]
-
+    f.close()
 
 
 
@@ -171,6 +172,12 @@ if __name__ == '__main__':
     dev_dataset = from_annotations_to_samples(dev_annotations)
     train_dataset = RelationDataset(train_dataset)
     dev_dataset = RelationDataset(dev_dataset)
+
+    test_corpus = read_file("data/Corpus.DEV.txt")
+    test_dataset = creat_test_samples(test_corpus)
+
+    test_dataset = RelationDatasetTest(test_dataset)
+
     # TODO: RelationDatasetTest for test dataset (dev)
     # skippppppp
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", special_tokens=True)
@@ -180,6 +187,7 @@ if __name__ == '__main__':
 
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=8, collate_fn=collate_fn)
     eval_dataloader = DataLoader(dev_dataset, batch_size=8, collate_fn=collate_fn)
+    test_dataloader = DataLoader(dev_dataset, batch_size=8, collate_fn=collate_fn_test)
 
     model = BertForRelationExtraction()
     model.bert_model.resize_token_embeddings(len(tokenizer))

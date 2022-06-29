@@ -95,11 +95,12 @@ def from_annotations_to_samples(annotations):
 
 
 def creat_test_samples(corpus):
-    sent_id_2_samples = {}
+    samples = []
     for sent_id, sent in corpus.items():
-        if get_relevant_pairs_entities(sent) != set():
-            sent_id_2_samples[sent_id] = get_relevant_pairs_entities(sent)
-    return sent_id_2_samples
+        samples_sent = get_relevant_pairs_entities(sent, sent_id)
+        if samples_sent != []:
+            samples.extend(samples_sent)
+    return samples
 
 def get_relevant_pairs_entities(sent, sent_id):
     '''
@@ -131,9 +132,11 @@ def get_relevant_pairs_entities(sent, sent_id):
     sentence_samples = create_samples_per_sentence(sent, sent_id, relevant_pairs)
     return sentence_samples
 
-
+# TODO: blala
 def create_samples_per_sentence(sent, sent_id, relevant_pairs):
-    samples = set()
+    spaceE1 = '[$]'
+    E2 = '[#]'
+    samples = []
     for e1, e2 in relevant_pairs:
         str_e1, begin_e1, end_e1 = e1
         str_e2, begin_e2, end_e2 = e2
@@ -142,7 +145,7 @@ def create_samples_per_sentence(sent, sent_id, relevant_pairs):
         else:
             new_sentence = sent[:begin_e2] + E2 + sent[begin_e2:end_e2] + E2 + sent[end_e2:begin_e1] + E1 + sent[begin_e1:end_e1] + E1 + sent[end_e1:]
         sample = (sent_id, new_sentence, str_e1, str_e2)
-        samples.add(sample)
+        samples.append(sample)
     return samples
 
 

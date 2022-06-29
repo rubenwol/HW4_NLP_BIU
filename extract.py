@@ -154,8 +154,8 @@ def eval_test(eval_dataloader, model, output_file):
             pred = torch.argmax(outputs, dim=1)# list of prediction (1 or 0) [1,1,0,0....]
 
             for i in range(len(pred)):
-                if pred == 1:
-                    f.write(f'{sent_ids[i]}\t{e1[i]}\tWork_For\t{e2[i]}')
+                if pred[i] == 1:
+                    f.write(f'{sent_ids[i]}\t{e1[i]}\tWork_For\t{e2[i]}\n')
                     # TODO:add to file sent_id[i]"\t"e1[i]"\t"Work_For"\t"e2[i]
     f.close()
 
@@ -178,8 +178,6 @@ if __name__ == '__main__':
 
     test_dataset = RelationDatasetTest(test_dataset)
 
-    # TODO: RelationDatasetTest for test dataset (dev)
-    # skippppppp
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", special_tokens=True)
     tokenizer.add_tokens(['[$]', '[#]'])
     E1_id = tokenizer.convert_tokens_to_ids(E1)
@@ -187,13 +185,13 @@ if __name__ == '__main__':
 
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=8, collate_fn=collate_fn)
     eval_dataloader = DataLoader(dev_dataset, batch_size=8, collate_fn=collate_fn)
-    test_dataloader = DataLoader(dev_dataset, batch_size=8, collate_fn=collate_fn_test)
+    test_dataloader = DataLoader(test_dataset, batch_size=8, collate_fn=collate_fn_test)
 
     model = BertForRelationExtraction()
     model.bert_model.resize_token_embeddings(len(tokenizer))
 
     optimizer = AdamW(model.parameters(), lr=5e-5)
-    num_epochs = 3
+    num_epochs = 1
     num_training_steps = num_epochs * len(train_dataloader)
     lr_scheduler = get_scheduler(
         name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
@@ -214,4 +212,6 @@ if __name__ == '__main__':
         print('*'*20)
         print('EVALUATION DEV SET')
         eval(eval_dataloader, model)
+    output_file = 'DEV.output'
+    eval_test(test_dataloader, model, output_file)
 

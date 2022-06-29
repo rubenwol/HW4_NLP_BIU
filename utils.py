@@ -148,26 +148,3 @@ def create_samples_per_sentence(sent, sent_id, relevant_pairs):
         samples.append(sample)
     return samples
 
-
-def draft():
-    from flair.data import Sentence
-    from flair.models import SequenceTagger
-    import itertools
-    tagger = SequenceTagger.load("flair/ner-english-large")
-
-    sent = "Also being considered are Judge Ralph K. Winter of the 2nd U.S. Circuit Court of Appeals in New York City and Judge Kenneth Starr of the U.S. Circuit Court of Appeals for the District of Columbia , said the source , who spoke on condition of anonymity ."
-    id_sent = "sent52"
-
-    PER_entities = []
-    ORG_entities = []
-    # make example sentence
-    sentence = Sentence(sent)
-    # predict NER tags
-    tagger.predict(sentence)
-    # iterate over entities
-    for entity in sentence.get_spans('ner'):
-        if entity.tag == 'PER':
-            PER_entities.append((entity.text, entity.start_position, entity.end_position))
-        elif entity.tag == 'ORG':
-            ORG_entities.append((entity.text, entity.start_position, entity.end_position))
-    relevant_pairs = list(itertools.product(PER_entities, ORG_entities))

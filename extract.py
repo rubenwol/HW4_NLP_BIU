@@ -21,12 +21,29 @@ class RelationDataset(Dataset):
         # label = 1 if self.samples[idx][4] == 'Live_In' else 0
         label = 1 if self.samples[idx][4] == 'Work_For' else 0
         # tokens = tokenizer(self.samples[idx][1], truncation=True)
-        return self.samples[idx][1], label
+        return self.samples[idx][1], label, self.samples[idx][0]
 
+class RelationDatasetTest(Dataset):
+    def __init__(self, samples):
+        self.samples = samples
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        '''
+
+        :return: self.samples[idx][1] , self.samples[idx][0], self.samples[idx][2], self.samples[idx][3]
+        or with word : sentence_for_bert, sent_id, e1, e2
+        '''
+        # tokens = tokenizer(self.samples[idx][1], truncation=True)
+
+        return self.samples[idx][1], self.samples[idx][0], self.samples[idx][2], self.samples[idx][3]
 
 def collate_fn(batch):
     sentences = list(map(lambda data: data[0], batch))
     labels = list(map(lambda data: data[1], batch))
+    sent_ids = list(map(lambda data: data[2], batch))
     tokens = tokenizer(sentences, padding=True, truncation=True)
     input_ids = torch.tensor(tokens['input_ids'], device=device)
     attention_mask = torch.tensor(tokens['attention_mask'], device=device)
@@ -37,7 +54,29 @@ def collate_fn(batch):
         'attention_mask': attention_mask,
         'e1_spans': e1_spans,
         'e2_spans': e2_spans,
-        'labels': labels
+        'labels': labels,
+        'sent_ids': sent_ids
+    }
+
+def collate_fn_test(batch):
+    sentences = list(map(lambda data: data[0], batch))
+    sent_ids = list(map(lambda data: data[1], batch))
+    e1 = list(map(lambda data: data[2], batch))
+    e2 = list(map(lambda data: data[3], batch))
+    tokens = tokenizer(sentences, padding=True, truncation=True)
+    input_ids = torch.tensor(tokens['input_ids'], device=device)
+    attention_mask = torch.tensor(tokens['attention_mask'], device=device)
+    e1_spans = (input_ids == E1_id).nonzero(as_tuple=True)[1].view(-1, 2).to(device)
+    e2_spans = (input_ids == E2_id).nonzero(as_tuple=True)[1].view(-1, 2).to(device)
+    return {
+        'input_ids': input_ids,
+        'attention_mask': attention_mask,
+        'e1': e1,
+        'e2': e2,
+        'e1_spans': e1_spans,
+        'e2_spans': e2_spans,
+        'sent_ids': sent_ids,
+
     }
 
 def train_loop(train_dataloader, model, optimizer,loss_fn, lr_scheduler, progress_bar):
@@ -96,6 +135,34 @@ def eval(eval_dataloader, model):
         # print(f'Current loss: {loss}', end='\r')
     # print(f'loss: {cum_loss / len(train_dataloader)}')
 
+def test(eval_dataloader, model):
+    with torch.no_grad():
+        for batch in eval_dataloader:
+            batch_input = {
+                'input_ids': batch['input_ids'],
+                'attention_mask': batch['attention_mask']
+            }
+            e1_spans = batch['e1_spans']
+            e2_spans = batch['e2_spans']
+            sent_ids = batch['sent_ids'] # list of sentence ids
+            e1 = batch['e1']
+            e2 = batch['e2']
+            # need to identitif
+            outputs = model(batch_input, e1_spans, e2_spans)
+            # labels = torch.tensor(batch['labels'], device=device)
+            pred = torch.argmax(outputs, dim=1) # list of prediction (1 or 0)
+
+            for i in range(len(pred)):
+                if pred == 1:
+                    print()
+                    # TODO:add to file sent_id[i]"\t"e1[i]"\t"Work_For"\t"e2[i]
+
+
+
+
+        # print(f'Current loss: {loss}', end='\r')
+    # print(f'loss: {cum_loss / len(train_dataloader)}')
+
 if __name__ == '__main__':
 
     train_annotations = read_annoations_file('data/TRAIN.annotations')
@@ -104,6 +171,7 @@ if __name__ == '__main__':
     dev_dataset = from_annotations_to_samples(dev_annotations)
     train_dataset = RelationDataset(train_dataset)
     dev_dataset = RelationDataset(dev_dataset)
+    # TODO: RelationDatasetTest for test dataset (dev)
 
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", special_tokens=True)
     tokenizer.add_tokens(['[$]', '[#]'])
@@ -139,16 +207,3 @@ if __name__ == '__main__':
         print('EVALUATION DEV SET')
         eval(eval_dataloader, model)
 
-
-    # metric = load_metric("accuracy")
-    # model.eval()
-    # for batch in eval_dataloader:
-    #     batch = {k: v.to(device) for k, v in batch.items()}
-    #     with torch.no_grad():
-    #         outputs = model(**batch)
-    #
-    #     logits = outputs.logits
-    #     predictions = torch.argmax(logits, dim=-1)
-    #     metric.add_batch(predictions=predictions, references=batch["labels"])
-    #
-    # metric.compute()

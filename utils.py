@@ -33,7 +33,7 @@ def read_annoations_file(fname):
             sentence = sentence.replace("-LRB-", "(")
             sentence = sentence.replace("-RRB-", ")")
             sentence = sentence[1:-1]
-            annotations.append((sent_id,e1, rel, e2, sentence))
+            annotations.append((sent_id, e1, rel, e2, sentence))
     return annotations
 
 
@@ -95,13 +95,15 @@ def from_annotations_to_samples(annotations):
 
 
 
+
 def get_relevant_pairs_entities(sentence):
     '''
     :param sentence: sentence train
     :return: relevent pairs
     '''
-    LOC_entities = []
+    # LOC_entities = []
     PER_entities = []
+    ORG_entities = []
     # make example sentence
     sentence = Sentence(sentence)
     # predict NER tags
@@ -113,11 +115,15 @@ def get_relevant_pairs_entities(sentence):
         # idx_start : entity.tokens[0].idx - 1
         # idx_end : entity.tokens[-1].idx
         # maybe replace start and end position by [idx_start, idx_end]
-        if entity.tag == 'LOC':
-            LOC_entities.append((entity.text, entity.start_position, entity.end_position))
-        elif entity.tag == 'PER':
+        if entity.tag == 'PER':
             PER_entities.append((entity.text, entity.start_position, entity.end_position))
-    relevant_pairs = list(itertools.product(LOC_entities, PER_entities))
+        # elif entity.tag == 'LOC':
+        #     LOC_entities.append((entity.text, entity.start_position, entity.end_position))
+        elif entity.tag == 'ORG':
+            ORG_entities.append((entity.text, entity.start_position, entity.end_position))
+    # relevant_pairs = list(itertools.product(PER_entities, LOC_entities))
+    relevant_pairs = list(itertools.product(PER_entities, ORG_entities))
+    # TODO: relevent_pairs to bert format and keep sentence id #
     return relevant_pairs
 
 

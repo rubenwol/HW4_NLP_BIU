@@ -12,8 +12,6 @@ tagger = SequenceTagger.load("flair/ner-english-large")
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
 
-
-
 def read_file(fname):
     sentences = {}
     with open(fname, 'r') as f:

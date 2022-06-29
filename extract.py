@@ -18,7 +18,8 @@ class RelationDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        label = 1 if self.samples[idx][4] == 'Live_In' else 0
+        # label = 1 if self.samples[idx][4] == 'Live_In' else 0
+        label = 1 if self.samples[idx][4] == 'Work_For' else 0
         # tokens = tokenizer(self.samples[idx][1], truncation=True)
         return self.samples[idx][1], label
 
@@ -39,8 +40,61 @@ def collate_fn(batch):
         'labels': labels
     }
 
+def train_loop(train_dataloader, model, optimizer,loss_fn, lr_scheduler, progress_bar):
+    cum_loss = 0
+    for batch in train_dataloader:
+        batch_input = {
+            'input_ids': batch['input_ids'],
+            'attention_mask': batch['attention_mask']
+        }
+        e1_spans = batch['e1_spans']
+        e2_spans = batch['e2_spans']
+        # need to identitif
+        outputs = model(batch_input, e1_spans, e2_spans)
+        labels = torch.tensor(batch['labels'], device=device)
+        one_hot_labels = F.one_hot(labels, 2)
+        loss = loss_fn(outputs, one_hot_labels.float())
+        loss.backward()
+        cum_loss += loss
+        # print(f'Current loss: {loss}', end='\r')
+        optimizer.step()
+        lr_scheduler.step()
+        optimizer.zero_grad()
+        progress_bar.update(1)
+    print(f'loss: {cum_loss / len(train_dataloader)}')
 
 
+def eval(eval_dataloader, model):
+    cum_loss = 0
+    True_positive = 0
+    False_positive = 0
+    False_negative = 0
+    with torch.no_grad():
+        for batch in eval_dataloader:
+            batch_input = {
+                'input_ids': batch['input_ids'],
+                'attention_mask': batch['attention_mask']
+            }
+            e1_spans = batch['e1_spans']
+            e2_spans = batch['e2_spans']
+            # need to identitif
+            outputs = model(batch_input, e1_spans, e2_spans)
+            labels = torch.tensor(batch['labels'], device=device)
+            pred = torch.argmax(outputs, dim=1)
+            True_positive += torch.sum((pred == labels) * (pred == 1))
+            False_positive += torch.sum((pred == 1) * (labels == 0))
+            False_negative += torch.sum((pred == 0) * (labels == 1))
+            one_hot_labels = F.one_hot(labels, 2)
+            loss = loss_fn(outputs, one_hot_labels.float())
+            cum_loss += loss
+    precision = True_positive / (True_positive + False_positive)
+    recall = True_positive / (True_positive + False_negative)
+    f1 = (2 * precision * recall) / (precision + recall)
+    print(f'f1 : {round(f1.item()*100,1)}')
+    print(f'precision : {round(precision.item()*100, 1)}')
+    print(f'recall : {round(recall.item()*100,1)}')
+        # print(f'Current loss: {loss}', end='\r')
+    # print(f'loss: {cum_loss / len(train_dataloader)}')
 
 if __name__ == '__main__':
 
@@ -76,27 +130,15 @@ if __name__ == '__main__':
 
     model.train()
     for epoch in range(num_epochs):
-        cum_loss = 0
-        for batch in train_dataloader:
-            batch_input = {
-                'input_ids': batch['input_ids'],
-                'attention_mask': batch['attention_mask']
-            }
-            e1_spans = batch['e1_spans']
-            e2_spans = batch['e2_spans']
-            # need to identitif
-            outputs = model(batch_input, e1_spans, e2_spans)
-            labels = torch.tensor(batch['labels'], device=device)
-            one_hot_labels = F.one_hot(labels, 2)
-            loss = loss_fn(outputs, one_hot_labels.float())
-            loss.backward()
-            cum_loss += loss
-            # print(f'Current loss: {loss}', end='\r')
-            optimizer.step()
-            lr_scheduler.step()
-            optimizer.zero_grad()
-            progress_bar.update(1)
-        print(f'loss: {cum_loss/len(train_dataloader)}')
+        model.train()
+        train_loop(train_dataloader, model, optimizer, loss_fn, lr_scheduler, progress_bar)
+        model.eval()
+        print('EVALUATION TRAINING SET')
+        eval(train_dataloader, model)
+        print('*'*20)
+        print('EVALUATION DEV SET')
+        eval(eval_dataloader, model)
+
 
     # metric = load_metric("accuracy")
     # model.eval()

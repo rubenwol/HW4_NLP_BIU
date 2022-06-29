@@ -101,7 +101,7 @@ def creat_test_samples(corpus):
             sent_id_2_samples[sent_id] = get_relevant_pairs_entities(sent)
     return sent_id_2_samples
 
-def get_relevant_pairs_entities(sent):
+def get_relevant_pairs_entities(sent, sent_id):
     '''
     :param sentence: sentence train
     :return: relevent pairs
@@ -128,19 +128,20 @@ def get_relevant_pairs_entities(sent):
             ORG_entities.append((entity.text, entity.start_position, entity.end_position))
     # relevant_pairs = list(itertools.product(PER_entities, LOC_entities))
     relevant_pairs = list(itertools.product(PER_entities, ORG_entities))
-    sentence_samples = create_samples_per_sentence(sent, relevant_pairs)
+    sentence_samples = create_samples_per_sentence(sent, sent_id, relevant_pairs)
     return sentence_samples
 
 
-def create_samples_per_sentence(sent, relevant_pairs):
+def create_samples_per_sentence(sent, sent_id, relevant_pairs):
     samples = set()
     for e1, e2 in relevant_pairs:
         str_e1, begin_e1, end_e1 = e1
         str_e2, begin_e2, end_e2 = e2
         if begin_e1 < begin_e2:
-            sample = sent[:begin_e1] + "$" + sent[begin_e1:end_e1] + "$" + sent[end_e1:begin_e2] + "#" + sent[begin_e2:end_e2] + "#" + sent[end_e2:]
+            new_sentence = sent[:begin_e1] + E1 + sent[begin_e1:end_e1] + E1 + sent[end_e1:begin_e2] + E2 + sent[begin_e2:end_e2] + E2 + sent[end_e2:]
         else:
-            sample = sent[:begin_e2] + "$" + sent[begin_e2:end_e2] + "$" + sent[end_e2:begin_e1] + "#" + sent[begin_e1:end_e1] + "#" + sent[end_e1:]
+            new_sentence = sent[:begin_e2] + E2 + sent[begin_e2:end_e2] + E2 + sent[end_e2:begin_e1] + E1 + sent[begin_e1:end_e1] + E1 + sent[end_e1:]
+        sample = (sent_id, new_sentence, str_e1, str_e2)
         samples.add(sample)
     return samples
 

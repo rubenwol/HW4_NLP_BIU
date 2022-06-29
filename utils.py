@@ -96,7 +96,7 @@ def from_annotations_to_samples(annotations):
 
 
 
-def get_relevant_pairs_entities(sentence):
+def get_relevant_pairs_entities(sent):
     '''
     :param sentence: sentence train
     :return: relevent pairs
@@ -105,7 +105,7 @@ def get_relevant_pairs_entities(sentence):
     PER_entities = []
     ORG_entities = []
     # make example sentence
-    sentence = Sentence(sentence)
+    sentence = Sentence(sent)
     # predict NER tags
     tagger.predict(sentence)
     # iterate over entities
@@ -123,8 +123,41 @@ def get_relevant_pairs_entities(sentence):
             ORG_entities.append((entity.text, entity.start_position, entity.end_position))
     # relevant_pairs = list(itertools.product(PER_entities, LOC_entities))
     relevant_pairs = list(itertools.product(PER_entities, ORG_entities))
-    # TODO: relevent_pairs to bert format and keep sentence id #
-    return relevant_pairs
+    sentence_2_samples = create_sample_bert_format(sent, relevant_pairs)
+    return sentence_2_samples
 
 
+def create_sample_bert_format(sent, relevant_pairs):
+    samples = set()
+    for e1, e2 in relevant_pairs:
+        str_e1, begin_e1, end_e1 = e1
+        str_e2, begin_e2, end_e2 = e2
+        if begin_e1 < begin_e2:
+            sample = sent[:begin_e1] + "$" + sent[begin_e1:end_e1] + "$" + sent[end_e1:begin_e2] + "#" + sent[begin_e2:end_e2] + "#" + sent[end_e2:]
+        else:
+            sample = sent[:begin_e2] + "$" + sent[begin_e2:end_e2] + "$" + sent[end_e2:begin_e1] + "#" + sent[begin_e1:end_e1] + "#" + sent[end_e1:]
+        samples.add(sample)
 
+
+def draft():
+    from flair.data import Sentence
+    from flair.models import SequenceTagger
+    import itertools
+    tagger = SequenceTagger.load("flair/ner-english-large")
+
+    sent = "Also being considered are Judge Ralph K. Winter of the 2nd U.S. Circuit Court of Appeals in New York City and Judge Kenneth Starr of the U.S. Circuit Court of Appeals for the District of Columbia , said the source , who spoke on condition of anonymity ."
+    id_sent = "sent52"
+
+    PER_entities = []
+    ORG_entities = []
+    # make example sentence
+    sentence = Sentence(sent)
+    # predict NER tags
+    tagger.predict(sentence)
+    # iterate over entities
+    for entity in sentence.get_spans('ner'):
+        if entity.tag == 'PER':
+            PER_entities.append((entity.text, entity.start_position, entity.end_position))
+        elif entity.tag == 'ORG':
+            ORG_entities.append((entity.text, entity.start_position, entity.end_position))
+    relevant_pairs = list(itertools.product(PER_entities, ORG_entities))

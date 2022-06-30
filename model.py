@@ -36,7 +36,7 @@ class BertForRelationExtraction(nn.Module):
     def avg_e_index(self, t, e_spans):
         avg = torch.zeros((t.size(0), t.size(2)), device=device)
         for i, (batch, e_span) in enumerate(zip(t, e_spans)):
-            range_ = torch.arange(e_span[0], e_span[1])
+            range_ = torch.arange(e_span[0], e_span[1]+1)
             avg[i] = batch[range_].mean(dim=0)
         return avg
 

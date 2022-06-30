@@ -19,7 +19,7 @@ def read_relations_file(fname):
 
 def score(pred, test):
     true_pos = sum([1 for r in test if r in pred])
-    precision = true_pos/len(pred)
+    precision = true_pos/len(pred) if len(pred) != 0 else 1
     recall = true_pos/len(test)
     f1_score = 2 * (precision * recall) / (precision + recall)
     print("F1 score: ", f1_score)

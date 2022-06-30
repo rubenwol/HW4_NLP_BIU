@@ -7,6 +7,7 @@ from transformers import get_scheduler
 from model import BertForRelationExtraction
 from utils import *
 from tqdm.auto import tqdm
+from eval import compute_score
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -21,7 +22,7 @@ class RelationDataset(Dataset):
         # label = 1 if self.samples[idx][4] == 'Live_In' else 0
         label = 1 if self.samples[idx][4] == 'Work_For' else 0
         # tokens = tokenizer(self.samples[idx][1], truncation=True)
-        return self.samples[idx][1], label, self.samples[idx][0]
+        return self.samples[idx][1], label, self.samples[idx][0], self.samples[idx][2], self.samples[idx][3]
 
 class RelationDatasetTest(Dataset):
     def __init__(self, samples):
@@ -43,6 +44,8 @@ def collate_fn(batch):
     sentences = list(map(lambda data: data[0], batch))
     labels = list(map(lambda data: data[1], batch))
     sent_ids = list(map(lambda data: data[2], batch))
+    e1 = list(map(lambda data: data[3], batch))
+    e2 = list(map(lambda data: data[4], batch))
     tokens = tokenizer(sentences, padding=True, truncation=True)
     input_ids = torch.tensor(tokens['input_ids'], device=device)
     attention_mask = torch.tensor(tokens['attention_mask'], device=device)
@@ -51,6 +54,8 @@ def collate_fn(batch):
     return {
         'input_ids': input_ids,
         'attention_mask': attention_mask,
+        'e1': e1,
+        'e2': e2,
         'e1_spans': e1_spans,
         'e2_spans': e2_spans,
         'labels': labels,
@@ -156,8 +161,8 @@ def eval_test(eval_dataloader, model, output_file):
             for i in range(len(pred)):
                 if pred[i] == 1:
                     f.write(f'{sent_ids[i]}\t{e1[i]}\tWork_For\t{e2[i]}\n')
-                    # TODO:add to file sent_id[i]"\t"e1[i]"\t"Work_For"\t"e2[i]
     f.close()
+
 
 
 
@@ -183,21 +188,22 @@ if __name__ == '__main__':
     E1_id = tokenizer.convert_tokens_to_ids(E1)
     E2_id = tokenizer.convert_tokens_to_ids(E2)
 
-    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=8, collate_fn=collate_fn)
-    eval_dataloader = DataLoader(dev_dataset, batch_size=8, collate_fn=collate_fn)
-    test_dataloader = DataLoader(test_dataset, batch_size=8, collate_fn=collate_fn_test)
+    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=16, collate_fn=collate_fn)
+    eval_dataloader = DataLoader(dev_dataset, batch_size=16, collate_fn=collate_fn)
+    test_dataloader = DataLoader(test_dataset, batch_size=16, collate_fn=collate_fn_test)
 
     model = BertForRelationExtraction()
     model.bert_model.resize_token_embeddings(len(tokenizer))
 
-    optimizer = AdamW(model.parameters(), lr=5e-5)
+    optimizer = AdamW(model.parameters(), lr=2e-5)
     num_epochs = 10
     num_training_steps = num_epochs * len(train_dataloader)
     lr_scheduler = get_scheduler(
         name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
     )
 
-    loss_fn = nn.MSELoss()
+    # loss_fn = nn.MSELoss()
+    loss_fn = nn.BCELoss()
 
     model.to(device)
     progress_bar = tqdm(range(num_training_steps))
@@ -208,10 +214,15 @@ if __name__ == '__main__':
         train_loop(train_dataloader, model, optimizer, loss_fn, lr_scheduler, progress_bar)
         model.eval()
         print('EVALUATION TRAINING SET')
-        eval(train_dataloader, model)
+        # eval(train_dataloader, model)
+        eval_test(train_dataloader, model, 'TRAIN.output')
+        compute_score('TRAIN.output', 'data/TRAIN.annotations')
         print('*'*20)
         print('EVALUATION DEV SET')
-        eval(eval_dataloader, model)
-    output_file = 'DEV.output'
-    eval_test(test_dataloader, model, output_file)
+        # eval(eval_dataloader, model)
+        eval_test(test_dataloader, model, 'DEV.output')
+        compute_score('DEV.output', 'data/DEV.annotations')
+
+    # output_file = 'DEV.output'
+    # eval_test(test_dataloader, model, output_file)
 

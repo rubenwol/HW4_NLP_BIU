@@ -7,7 +7,7 @@ from transformers import get_scheduler
 from model import BertForRelationExtraction
 from utils import *
 from tqdm.auto import tqdm
-from eval import compute_score
+#from eval import compute_score
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -173,8 +173,8 @@ if __name__ == '__main__':
 
     train_annotations = read_annoations_file('data/TRAIN.annotations')
     dev_annotations = read_annoations_file('data/DEV.annotations')
-    train_dataset = from_annotation_to_samples_ner(train_annotations)
-    dev_dataset = from_annotation_to_samples_ner(dev_annotations)
+    train_dataset = from_annotation_to_samples_ner_train(train_annotations)
+    dev_dataset = from_annotation_to_samples_ner_dev(dev_annotations)
     train_dataset = RelationDataset(train_dataset)
     dev_dataset = RelationDataset(dev_dataset)
 

@@ -2,6 +2,7 @@ from flair.data import Sentence
 from flair.models import SequenceTagger
 import itertools
 from torch.utils.data import Dataset
+from rouge_score import rouge_scorer
 from transformers import BertTokenizer, BertForSequenceClassification, BertModel
 
 E1 = '[$]'
@@ -71,13 +72,14 @@ def from_annotations_to_dic(annotations):
         e1 = e1.replace("-LRB-", "(")
         e2 = e2.replace("-RRB-", ")")
         if rel == 'Work_For':
-            dic_rel_entities.add((sent_id,e1 ,e2 ))
+            dic_rel_entities.add((sent_id, e1, e2))
         sentence = sentence.replace("-LRB-", "(").replace("-RRB-", ")")
         corpus[sent_id] = sentence
     return corpus, dic_rel_entities
 
 
-def from_annotation_to_samples_ner(annotations):
+def from_annotation_to_samples_ner_train(annotations):
+     scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
      corpus, dic_rel_entities = from_annotations_to_dic(annotations)
      samples = creat_test_samples(corpus)
      new_samples = []
@@ -85,10 +87,33 @@ def from_annotation_to_samples_ner(annotations):
         if (sent_id, e1, e2) in dic_rel_entities:
             rel = 'Work_For'
         else:
-            rel = 'not_work_for'
+            rel = ''
+            test_entities_sent = [(sent_id_t, e1_t, e2_t) for (sent_id_t, e1_t, e2_t) in dic_rel_entities if sent_id_t == sent_id]
+            for (sent_id_t, e1_t, e2_t) in test_entities_sent:
+                rouge_l_e1 = scorer.score(e1_t, e1)['rougeL'][2]
+                rouge_l_e2 = scorer.score(e2_t, e2)['rougeL'][2]
+                if rouge_l_e1>0.7 and rouge_l_e2>0.7:
+                    rel = 'Work_For'
+                    break
+            if rel == '':
+                rel = 'not_work_for'
+            print(sent_id, e1, e2)
         new_samples.append((sent_id, new_sentence, e1, e2, rel))
      return new_samples
 
+
+def from_annotation_to_samples_ner_dev(annotations):
+    corpus, dic_rel_entities = from_annotations_to_dic(annotations)
+    samples = creat_test_samples(corpus)
+    new_samples = []
+    for sent_id, new_sentence, e1, e2 in samples:
+        if (sent_id, e1, e2) in dic_rel_entities:
+            rel = 'Work_For'
+        else:
+            rel = 'not_work_for'
+        print(sent_id, e1, e2)
+        new_samples.append((sent_id, new_sentence, e1, e2, rel))
+    return new_samples
 
 
 def from_annotations_to_samples(annotations):
@@ -130,6 +155,7 @@ def creat_test_samples(corpus):
         if samples_sent != []:
             samples.extend(samples_sent)
     return samples
+
 
 def get_relevant_pairs_entities(sent, sent_id):
     '''

@@ -43,7 +43,7 @@ def read_relations_file(fname):
     with open(fname, 'r') as f:
         lines = f.readlines()
         for line in lines:
-            if fname == "data/DEV.annotations":
+            if 'annotations' in fname:
                 sent_id, e1, rel, e2, sentence = line.strip().split('\t')
             else:
                 sent_id, e1, rel, e2 = line.strip().split('\t')
@@ -52,28 +52,20 @@ def read_relations_file(fname):
     return relations
 
 
-def compute_score(pred, test):
+def compute_score(f_pred, f_test):
+    pred = read_relations_file(f_pred)
+    test = read_relations_file(f_test)
     true_pos = sum([1 for r in test if r in pred])
-    precision = true_pos/len(pred)
+    precision = true_pos/len(pred) if len(pred) > 0 else 1
     recall = true_pos/len(test)
-    f1_score = 2 * (precision * recall) / (precision + recall)
+    f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
     print("F1 score: ", f1_score)
     print("Precision: ", precision)
     print("Recall: ", recall)
 
-    for r in test:
-        if r not in pred:
-            print(r)
-    print(len(test))
-    print(len([r for r in test if r not in pred]),"\n")
-
-    for r in pred:
-        if r not in test:
-            print(r)
-    print(len(pred))
-    print(len([r for r in pred if r not in test]))
+    return f1_score
 
 
-pred = read_relations_file(f_pred)
-test = read_relations_file(f_test)
-compute_score(pred, test)
+# pred = read_relations_file(f_pred)
+# test = read_relations_file(f_test)
+# compute_score(pred, test)

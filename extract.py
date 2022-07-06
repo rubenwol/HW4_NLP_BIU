@@ -7,9 +7,10 @@ from transformers import get_scheduler
 from model import BertForRelationExtraction
 from utils import *
 from tqdm.auto import tqdm
-#from eval import compute_score
+from eval import compute_score
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+lr = 2e-5
 
 class RelationDataset(Dataset):
     def __init__(self, samples):
@@ -80,7 +81,6 @@ def collate_fn_test(batch):
         'e1_spans': e1_spans,
         'e2_spans': e2_spans,
         'sent_ids': sent_ids,
-
     }
 
 def train_loop(train_dataloader, model, optimizer,loss_fn, lr_scheduler, progress_bar):
@@ -107,37 +107,37 @@ def train_loop(train_dataloader, model, optimizer,loss_fn, lr_scheduler, progres
     print(f'loss: {cum_loss / len(train_dataloader)}')
 
 
-def eval(eval_dataloader, model):
-    cum_loss = 0
-    True_positive = 0
-    False_positive = 0
-    False_negative = 0
-    with torch.no_grad():
-        for batch in eval_dataloader:
-            batch_input = {
-                'input_ids': batch['input_ids'],
-                'attention_mask': batch['attention_mask']
-            }
-            e1_spans = batch['e1_spans']
-            e2_spans = batch['e2_spans']
-            # need to identitif
-            outputs = model(batch_input, e1_spans, e2_spans)
-            labels = torch.tensor(batch['labels'], device=device)
-            pred = torch.argmax(outputs, dim=1)
-            True_positive += torch.sum((pred == labels) * (pred == 1))
-            False_positive += torch.sum((pred == 1) * (labels == 0))
-            False_negative += torch.sum((pred == 0) * (labels == 1))
-            one_hot_labels = F.one_hot(labels, 2)
-            loss = loss_fn(outputs, one_hot_labels.float())
-            cum_loss += loss
-    precision = True_positive / (True_positive + False_positive)
-    recall = True_positive / (True_positive + False_negative)
-    f1 = (2 * precision * recall) / (precision + recall)
-    print(f'f1 : {round(f1.item()*100,1)}')
-    print(f'precision : {round(precision.item()*100, 1)}')
-    print(f'recall : {round(recall.item()*100,1)}')
-        # print(f'Current loss: {loss}', end='\r')
-    # print(f'loss: {cum_loss / len(train_dataloader)}')
+# def eval(eval_dataloader, model):
+#     cum_loss = 0
+#     True_positive = 0
+#     False_positive = 0
+#     False_negative = 0
+#     with torch.no_grad():
+#         for batch in eval_dataloader:
+#             batch_input = {
+#                 'input_ids': batch['input_ids'],
+#                 'attention_mask': batch['attention_mask']
+#             }
+#             e1_spans = batch['e1_spans']
+#             e2_spans = batch['e2_spans']
+#             # need to identitif
+#             outputs = model(batch_input, e1_spans, e2_spans)
+#             labels = torch.tensor(batch['labels'], device=device)
+#             pred = torch.argmax(outputs, dim=1)
+#             True_positive += torch.sum((pred == labels) * (pred == 1))
+#             False_positive += torch.sum((pred == 1) * (labels == 0))
+#             False_negative += torch.sum((pred == 0) * (labels == 1))
+#             one_hot_labels = F.one_hot(labels, 2)
+#             loss = loss_fn(outputs, one_hot_labels.float())
+#             cum_loss += loss
+#     precision = True_positive / (True_positive + False_positive)
+#     recall = True_positive / (True_positive + False_negative)
+#     f1 = (2 * precision * recall) / (precision + recall)
+#     print(f'f1 : {round(f1.item()*100,1)}')
+#     print(f'precision : {round(precision.item()*100, 1)}')
+#     print(f'recall : {round(recall.item()*100,1)}')
+#         # print(f'Current loss: {loss}', end='\r')
+#     # print(f'loss: {cum_loss / len(train_dataloader)}')
 
 
 def eval_test(eval_dataloader, model, output_file):
@@ -169,17 +169,19 @@ def eval_test(eval_dataloader, model, output_file):
         # print(f'Current loss: {loss}', end='\r')
     # print(f'loss: {cum_loss / len(train_dataloader)}')
 
-if __name__ == '__main__':
-
+def main():
+    global E1_id
+    global E2_id
     train_annotations = read_annoations_file('data/TRAIN.annotations')
     dev_annotations = read_annoations_file('data/DEV.annotations')
+    # train_dataset = from_annotations_to_samples(train_annotations)
     train_dataset = from_annotation_to_samples_ner_train(train_annotations)
-    dev_dataset = from_annotation_to_samples_ner_dev(dev_annotations)
+    dev_dataset = from_annotations_to_samples(dev_annotations)
     train_dataset = RelationDataset(train_dataset)
     dev_dataset = RelationDataset(dev_dataset)
 
     test_corpus = read_file("data/Corpus.DEV.txt")
-    test_dataset = creat_test_samples(test_corpus)
+    test_dataset = create_test_samples(test_corpus)
 
     test_dataset = RelationDatasetTest(test_dataset)
 
@@ -189,40 +191,63 @@ if __name__ == '__main__':
     E2_id = tokenizer.convert_tokens_to_ids(E2)
 
     train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=16, collate_fn=collate_fn)
-    eval_dataloader = DataLoader(dev_dataset, batch_size=16, collate_fn=collate_fn)
+    # eval_dataloader = DataLoader(dev_dataset, batch_size=16, collate_fn=collate_fn)
     test_dataloader = DataLoader(test_dataset, batch_size=16, collate_fn=collate_fn_test)
+
+
+    best_model = BertForRelationExtraction()
+    best_model.bert_model.resize_token_embeddings(len(tokenizer))
+
 
     model = BertForRelationExtraction()
     model.bert_model.resize_token_embeddings(len(tokenizer))
 
-    optimizer = AdamW(model.parameters(), lr=2e-5)
-    num_epochs = 10
+    optimizer = AdamW(model.parameters(), lr=lr)
+    num_epochs = 8
     num_training_steps = num_epochs * len(train_dataloader)
     lr_scheduler = get_scheduler(
         name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
     )
 
-    # loss_fn = nn.MSELoss()
-    loss_fn = nn.BCELoss()
+    loss_fn = nn.MSELoss()
+    # loss_fn = nn.BCELoss()
 
     model.to(device)
-    progress_bar = tqdm(range(num_training_steps))
+    best_model.to(device)
 
+    progress_bar = tqdm(range(num_training_steps))
+    best_f1 = 0
     model.train()
     for epoch in range(num_epochs):
         model.train()
         train_loop(train_dataloader, model, optimizer, loss_fn, lr_scheduler, progress_bar)
+        # train_loop(train_dataloader, model, optimizer, loss_fn, progress_bar)
         model.eval()
         print('EVALUATION TRAINING SET')
         # eval(train_dataloader, model)
         eval_test(train_dataloader, model, 'TRAIN.output')
-        compute_score('TRAIN.output', 'data/TRAIN.annotations')
+        f1_train = compute_score('TRAIN.output', 'data/TRAIN.annotations')
         print('*'*20)
         print('EVALUATION DEV SET')
         # eval(eval_dataloader, model)
         eval_test(test_dataloader, model, 'DEV.output')
-        compute_score('DEV.output', 'data/DEV.annotations')
+        f1_dev = compute_score('DEV.output', 'data/DEV.annotations')
+        print(lr_scheduler.get_last_lr()[0])
+        if f1_dev > best_f1:
+            print('BEST')
+            best_model.load_state_dict(model.state_dict())
+            best_f1 = f1_dev
+
+    best_model.eval()
+    print()
+    print('TEST')
+    print(f'BEST LR: {lr}')
+    eval_test(test_dataloader, best_model, 'test.output')
+    f1_dev = compute_score('test.output', 'data/DEV.annotations')
 
     # output_file = 'DEV.output'
-    # eval_test(test_dataloader, model, output_file)
+    # eval_test(test_dataloader, best_model, output_file)
 
+if __name__ == '__main__':
+    main()
+    print('hello')

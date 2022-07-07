@@ -5,7 +5,6 @@ from torch.utils.data import Dataset
 from rouge_score import rouge_scorer
 from transformers import BertTokenizer, BertForSequenceClassification, BertModel
 
-from difflib import SequenceMatcher
 
 
 E1 = '[$]'
@@ -21,6 +20,8 @@ def read_file(fname):
     sentences = {}
     with open(fname, 'r') as f:
         lines = f.readlines()
+        if lines[0][0] == '#':
+            raise ValueError("The format of the input file must be .txt files not .processed file .")
         for line in lines:
             sent_id, sentence = line.strip().split('\t')
             sentence = sentence.replace("-LRB-", "(")
@@ -90,7 +91,7 @@ def from_annotation_to_samples_ner_train(annotations):
     # POSITIVE EXAMPLES : TAKE FROM ANNOTATIONS FILE
     new_samples = from_annotations_to_samples(annotations)
 
-    for sent_id, new_sentence, e1, e2 in samples:
+    for sent_id, new_sentence, e1, e2, sentence in samples:
         # if (sent_id, e1, e2) not in dic_rel_entities:
         #     rel = ''
         test_entities_sent = [(sent_id_t, e1_t, relation, e2_t, _) for (sent_id_t, e1_t, relation, e2_t, _) in annotations if
@@ -110,7 +111,7 @@ def from_annotation_to_samples_ner_train(annotations):
             # print(sent_id, e1, e2)
         if rel == 'NOT_LABEL':
             count += 1
-            new_samples.append((sent_id, new_sentence, e1, e2, rel))
+            new_samples.append((sent_id, new_sentence, e1, e2, rel, sentence))
     print(f'NO LABEL {count}')
     print(f'len test samples {len(samples)}')
     return new_samples
@@ -120,13 +121,13 @@ def from_annotation_to_samples_ner_dev(annotations):
     corpus, dic_rel_entities = from_annotations_to_dic(annotations)
     samples = create_test_samples(corpus)
     new_samples = []
-    for sent_id, new_sentence, e1, e2 in samples:
+    for sent_id, new_sentence, e1, e2, sentence in samples:
         if (sent_id, e1, e2) in dic_rel_entities:
             rel = 'Work_For'
         else:
             rel = 'not_work_for'
         # print(sent_id, e1, e2)
-        new_samples.append((sent_id, new_sentence, e1, e2, rel))
+        new_samples.append((sent_id, new_sentence, e1, e2, rel, sentence))
     return new_samples
 
 
@@ -157,7 +158,7 @@ def from_annotations_to_samples(annotations):
             tokens.insert(e2_end, E2)
             tokens.insert(e2_start, E2)
         new_sentence = ' '.join(tokens)
-        sample = (sent_id, new_sentence, e1, e2, rel)
+        sample = (sent_id, new_sentence, e1, e2, rel, sentence)
         samples.append(sample)
     return samples
 
@@ -208,7 +209,7 @@ def create_samples_per_sentence(sent, sent_id, relevant_pairs):
             new_sentence = sent[:begin_e1] + E1 + ' ' + sent[begin_e1:end_e1] + ' ' + E1 + sent[end_e1:begin_e2] + E2 + ' ' + sent[begin_e2:end_e2] + ' ' + E2 + sent[end_e2:]
         else:
             new_sentence = sent[:begin_e2] + E2 + ' ' + sent[begin_e2:end_e2] + ' ' + E2 + sent[end_e2:begin_e1] + E1 + ' ' + sent[begin_e1:end_e1] + ' ' + E1 + sent[end_e1:]
-        sample = (sent_id, new_sentence, str_e1, str_e2)
+        sample = (sent_id, new_sentence, str_e1, str_e2, sent)
         samples.append(sample)
     return samples
 

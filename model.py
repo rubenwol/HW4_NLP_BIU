@@ -19,6 +19,7 @@ class BertForRelationExtraction(nn.Module):
         self.cls_linear = nn.Linear(self.bert_model.config.hidden_size, self.bert_model.config.hidden_size)
         self.entity_linear = nn.Linear(self.bert_model.config.hidden_size, self.bert_model.config.hidden_size)
         self.final_linear = nn.Linear(self.bert_model.config.hidden_size*3, outputs_dim)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, inputs, e1_spans, e2_spans):
         out = self.bert_model(**inputs)
@@ -31,7 +32,7 @@ class BertForRelationExtraction(nn.Module):
         out3 = self.entity_linear(self.tanh(self.dropout(e2_avg)))
         out = torch.cat((out1, out2, out3), dim=1).to(device)
         out = self.final_linear(self.dropout(out))
-        return F.sigmoid(out)
+        return self.sigmoid(out)
 
     def avg_e_index(self, t, e_spans):
         avg = torch.zeros((t.size(0), t.size(2)), device=device)
